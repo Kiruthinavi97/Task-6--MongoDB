@@ -1,107 +1,183 @@
-MongoDB Task
+# MongoDB Task - Zen Class Programme Database
 
-Design database for Zen class programme
-users
-codekata
-attendance
-topics
-tasks
-company_drives
-mentors
+The database is designed to store information about users, codekata submissions, attendance records, topics, tasks, company_drives, and mentors.
 
-Find all the topics and tasks which are thought in the month of October
-Find all the company drives which appeared between 15 oct-2020 and 31-oct-2020
-Find all the company drives and students who are appeared for the placement.
-Find the number of problems solved by the user in codekata
-Find all the mentors with who has the mentee's count more than 15
-Find the number of users who are absent and task is not submitted  between 15 oct-2020 and 31-oct-2020
+## Table of Contents
 
-```Answers```
+1. [Database Collections](#database-collections)
+2. [Getting Started](#getting-started)
+3. [Queries](#queries)
+4. [Contributing](#contributing)
+5. [License](#license)
 
-Find all the topics and tasks which are thought in the month of October
+## Database Collections
 
-db.topics.find({
-... "date":{
-... $gte: ISODate("2020-10-01"),
-... $lt:ISODate("2020-10-31")
-... }
-... })
+The database consists of the following collections:
 
-db.tasks.find({
-... "date":{
-... $gte: ISODate("2020-10-01"),
-... $lt: ISODate("2020-10-31")
-... }
-... })
+1. `users`: Stores information about program users.
+2. `codekata`: Contains codekata submissions and user performance.
+3. `attendance`: Records attendance and task submissions by users.
+4. `topics`: Stores information about topics taught in the program.
+5. `tasks`: Contains details about tasks associated with topics.
+6. `company_drives`: Records information about company placement drives.
+7. `mentors`: Stores data about program mentors and their mentee counts.
 
-Find all the company drives which appeared between 15 oct-2020 and 31-oct-2020
+## Getting Started
 
-db.company_drives.find({
-... "interview_date": {
-... $gte: ISODate("2020-10-15"),
-... $lt: ISODate("2020-10-31")
-... }
-... })
+To set up and use the database, you will need:
 
-Find all the company drives and students who are appeared for the placement.
+- MongoDB installed and running.
+- A MongoDB client or shell to execute queries.
+- Properly configured connection settings.
 
-db.company_drives.find({},{
-... "_id":0,
-... "company_name":1,
-... "student_id_list":1
-... })
+## Queries:
 
-Find the number of problems solved by the user in codekata
+### 1. Find all the topics and tasks taught in the month of October:
 
-db.users.aggregate({
-... $project: {
-... _id: 0,
-... user_name: 1,
-... no_of_prob_solved: {
-... $size: "$codekata_solved"
-... }
-... }
-... })
+     ```bash
+     db.getCollection('topics').aggregate(
+    [
+     {
+        $lookup: {
+          from: 'tasks',
+          localField: 'topic',
+          foreignField: 'task',
+          as: 'Topic Task Data'
+        }
+      },
+      {
+        $match: { topicDate: { $regex: '2020-10' } }
+      },
+     {
+        $project: {
+          _id: 0,
+          topic: 1,
+          topicDate: 1,
+          'Topic Task Data.userId': 1,
+          'Topic Task Data.submitted': 1,
+          'Topic Task Data.task': 1
+        }
+      }
+    ],
+    {maxTimeMS: 60000, allowDiskUse: true }
+  ); 
 
-Find all the mentors with who has the mentee's count more than 15
+### 2. Find all the company drives which appeared between 15 oct-2020 and 31-oct-2020:
 
-db.mentors.find({
-... $where: "this.student_id_list.length > 15"
-... },
-... {
-... _id: 0,
-... mentor_name: 1
-... })
+    ```bash
+    db.getCollection('company_drives').find({
+     driveDate: {
+       $gte: '2020-10-15',
+       $lte: '2020-10-31'
+     }
+    });
 
-Find the number of users who are absent and task is not submitted  between 15 oct-2020 and 31-oct-2020
+### 3. Find all the company drives and students who are appeared for the placement:
 
-db.attendance.aggregate({
-... $match: { 
-... "date": {
-... $gte: ISODate("2020-10-15"),
-... $lt: ISODate("2020-10-31")
-... } 
-... }
-... },{
-... $project: {
-... _id: 0,
-... date: 1,
-... no_of_absent: {$size: "$absent"}
-... }
-... })
 
-db.tasks.aggregate({
-... $match: {
-... "date": {
-... $gte: ISODate("2020-10-15"),
-... $lt: ISODate("2020-10-31")
-... }
-... }
-... },{
-... $project: {
-... _id: 0,
-... task_name:1,
-... date: 1,
-... no_of_not_submitted: {$size: "$not_submitted"}
-... }
-... })
+    ```bash
+    db.getCollection('Company_Drives').aggregate(
+    [
+       {
+      $lookup: {
+        from: 'Users',
+        localField: 'userId',
+        foreignField: 'userId',
+        as: 'studentInfo'
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        'studentInfo.userName': 1,
+        company: 1,
+        driveDate: 1,
+        'studentInfo.userEmail': 1,
+        'studentInfo.userId': 1
+      }
+    }
+    ],
+    { maxTimeMS: 60000, allowDiskUse: true }
+    );
+
+### 4. Find the number of problems solved by the user in codekata:
+
+    ```bash
+    db.getCollection('codekata').aggregate(
+    [
+    {
+      $group: {
+        _id: 'Total Problem Solved By Users',
+        count: { $sum: '$problemSolved' }
+      }
+    }
+    ],
+    { maxTimeMS: 60000, allowDiskUse: true }
+    );
+
+### 5. Find all the mentors with who has the mentee's count more than 15:
+
+     ```bash
+     db.getCollection('mentors').aggregate(
+     [{ $match: { menteeCount: { $gt: 15 } } }],
+     { maxTimeMS: 60000, allowDiskUse: true }
+     );
+
+### 6. Find the number of users who are absent and task is not submitted  between 15 oct-2020 and 31-oct-2020:
+
+    ```bash
+    db.getCollection('attendence').aggregate(
+    [
+    {
+      $lookup: {
+        from: 'topics',
+        localField: 'topicId',
+        foreignField: 'topicId',
+        as: 'Absent'
+      }
+    },
+    {
+      $lookup: {
+        from: 'tasks',
+        localField: 'userId',
+        foreignField: 'userId',
+        as: 'Task-notSubmitted'
+      }
+    },
+    { $unwind: '$Task-notSubmitted' },
+    { $unwind: '$Absent' },
+    {
+      $match: {
+        attended: false,
+        'Absent.topicDate': {
+          $gte: '2020-10-15',
+          $lte: '2020-10-31'
+        }
+      }
+    },
+    {
+      $match: {
+        'Task-notSubmitted.dueDate': {
+          $gte: '2020-10-15',
+          $lte: '2020-10-31'
+        },
+        'Task-notSubmitted.submitted': false
+      }
+    },
+    { $project: { _id: 0, 'Absent._id': 0 } },
+    { $project: { 'task-notSubmitted._id': 0 } }
+    ],
+    { maxTimeMS: 60000, allowDiskUse: true }
+    );
+
+
+Clone this repository and use the provided scripts to create collections and insert sample data.
+
+## Contributing
+
+If you have improvements or feature suggestions for this database setup, please feel free to contribute. Fork this repository, make your changes, and submit a pull request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+  
